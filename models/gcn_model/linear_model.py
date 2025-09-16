@@ -37,7 +37,9 @@ class Linear(nn.Module):
 
 
 class LinearModel(nn.Module):
-    def __init__(self, input_size, output_size, linear_size=1024, num_stage=2, p_dropout=0.5):
+    def __init__(
+        self, input_size, output_size, linear_size=1024, num_stage=2, p_dropout=0.5
+    ):
         super(LinearModel, self).__init__()
 
         self.linear_size = linear_size

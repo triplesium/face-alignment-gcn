@@ -6,7 +6,8 @@ import torch.nn as nn
 import math
 
 import logging
-logger = logging.getLogger('FLD')
+
+logger = logging.getLogger("FLD")
 
 
 # IBN-a
@@ -17,15 +18,16 @@ class IBN_a(nn.Module):
         self.half = half1
         half2 = num_features - half1
         self.IN = nn.InstanceNorm2d(half1, affine=True)
-        self.BN = nn.BatchNorm2d(half2,)
-    
+        self.BN = nn.BatchNorm2d(
+            half2,
+        )
+
     def forward(self, x):
         split = torch.split(x, self.half, 1)
         out1 = self.IN(split[0].contiguous())
         out2 = self.BN(split[1].contiguous())
         out = torch.cat((out1, out2), 1)
         return out
-
 
 
 class AddCoords(nn.Module):
@@ -53,13 +55,20 @@ class AddCoords(nn.Module):
         xx_channel = xx_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
         yy_channel = yy_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
 
-        ret = torch.cat([
-            input_tensor,
-            xx_channel.type_as(input_tensor),
-            yy_channel.type_as(input_tensor)], dim=1)
+        ret = torch.cat(
+            [
+                input_tensor,
+                xx_channel.type_as(input_tensor),
+                yy_channel.type_as(input_tensor),
+            ],
+            dim=1,
+        )
 
         if self.with_r:
-            rr = torch.sqrt(torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2))
+            rr = torch.sqrt(
+                torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2)
+                + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2)
+            )
             ret = torch.cat([ret, rr], dim=1)
 
         return ret
@@ -70,7 +79,7 @@ class CoordConv(nn.Module):
     def __init__(self, in_channels, out_channels, with_r=False, **kwargs):
         super().__init__()
         self.addcoords = AddCoords(with_r=with_r)
-        in_size = in_channels+2
+        in_size = in_channels + 2
         if with_r:
             in_size += 1
         self.conv = nn.Conv2d(in_size, out_channels, **kwargs)
@@ -83,8 +92,9 @@ class CoordConv(nn.Module):
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
-    return CoordConv(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=False)
+    return CoordConv(
+        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
+    )
 
 
 class BasicBlock(nn.Module):
@@ -126,8 +136,15 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, stride=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes, momentum=0.01)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               dilation=dilate, padding=dilate, bias=False)
+        self.conv2 = nn.Conv2d(
+            planes,
+            planes,
+            kernel_size=3,
+            stride=stride,
+            dilation=dilate,
+            padding=dilate,
+            bias=False,
+        )
         self.bn2 = nn.BatchNorm2d(planes, momentum=0.01)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4, momentum=0.01)
@@ -166,20 +183,35 @@ class ResNet(nn.Module):
 
         num_input_channel = 3 if is_color else 1
 
-        self.conv1 = nn.Conv2d(num_input_channel, num_feats[0], kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            num_input_channel,
+            num_feats[0],
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
+        )
         self.bn1 = nn.BatchNorm2d(num_feats[0], momentum=0.01)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(block, num_feats[0], layers[0], stride=1, dilate=1)
-        self.layer2 = self._make_layer(block, num_feats[1], layers[1], stride=2, dilate=1)
-        self.layer3 = self._make_layer(block, num_feats[2], layers[2], stride=2, dilate=1)
-        self.layer4 = self._make_layer(block, num_feats[3], layers[3], stride=2, dilate=1)
+        self.layer1 = self._make_layer(
+            block, num_feats[0], layers[0], stride=1, dilate=1
+        )
+        self.layer2 = self._make_layer(
+            block, num_feats[1], layers[1], stride=2, dilate=1
+        )
+        self.layer3 = self._make_layer(
+            block, num_feats[2], layers[2], stride=2, dilate=1
+        )
+        self.layer4 = self._make_layer(
+            block, num_feats[3], layers[3], stride=2, dilate=1
+        )
 
         self.avgpool = nn.AvgPool2d(7, stride=1)
         self.fc = nn.Linear(512 * block.expansion, 1000)
 
-        self.num_out_feats = [num_feat*block.expansion for num_feat in num_feats]
+        self.num_out_feats = [num_feat * block.expansion for num_feat in num_feats]
         self.downsample_ratio = 32
 
         self._init_weights()
@@ -187,7 +219,7 @@ class ResNet(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
+                nn.init.kaiming_normal_(m.weight.data, a=0, mode="fan_out")
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
@@ -196,8 +228,13 @@ class ResNet(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
                 nn.BatchNorm2d(planes * block.expansion, momentum=0.01),
             )
 
@@ -219,17 +256,25 @@ class ResNet(nn.Module):
         out2 = self.layer2(out1)
         out3 = self.layer3(out2)
         out4 = self.layer4(out3)
-        x_dict = {'out1': out1, 'out2': out2, 'out3': out3, 'out4':out4}
+        x_dict = {"out1": out1, "out2": out2, "out3": out3, "out4": out4}
         return x_dict
 
 
 def ResNet34(is_color, pretrained_path=None, receptive_keep=False):
     logger.debug("build ResNet34 ......")
-    return ResNet(block=BasicBlock, layers=[3,4,6,3], num_feats=[64, 128, 256, 512], 
-                 is_color=is_color)
+    return ResNet(
+        block=BasicBlock,
+        layers=[3, 4, 6, 3],
+        num_feats=[64, 128, 256, 512],
+        is_color=is_color,
+    )
 
 
 def ResNet18(is_color, pretrained_path=None, receptive_keep=False):
     logger.debug("build ResNet18 ......")
-    return ResNet(block=BasicBlock, layers=[2,2,2,2], num_feats=[64, 128, 256, 512], 
-                 is_color=is_color)
+    return ResNet(
+        block=BasicBlock,
+        layers=[2, 2, 2, 2],
+        num_feats=[64, 128, 256, 512],
+        is_color=is_color,
+    )

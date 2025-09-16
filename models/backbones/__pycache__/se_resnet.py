@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from models.backbones.resnet import ResNet 
+from models.backbones.resnet import ResNet
+
 
 # IBN-a
 class IBN_a(nn.Module):
@@ -10,8 +11,10 @@ class IBN_a(nn.Module):
         self.half = half1
         half2 = num_features - half1
         self.IN = nn.InstanceNorm2d(half1, affine=True)
-        self.BN = nn.BatchNorm2d(half2,)
-    
+        self.BN = nn.BatchNorm2d(
+            half2,
+        )
+
     def forward(self, x):
         split = torch.split(x, self.half, 1)
         out1 = self.IN(split[0].contiguous())
@@ -45,13 +48,20 @@ class AddCoords(nn.Module):
         xx_channel = xx_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
         yy_channel = yy_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
 
-        ret = torch.cat([
-            input_tensor,
-            xx_channel.type_as(input_tensor),
-            yy_channel.type_as(input_tensor)], dim=1)
+        ret = torch.cat(
+            [
+                input_tensor,
+                xx_channel.type_as(input_tensor),
+                yy_channel.type_as(input_tensor),
+            ],
+            dim=1,
+        )
 
         if self.with_r:
-            rr = torch.sqrt(torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2))
+            rr = torch.sqrt(
+                torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2)
+                + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2)
+            )
             ret = torch.cat([ret, rr], dim=1)
 
         return ret
@@ -62,7 +72,7 @@ class CoordConv(nn.Module):
     def __init__(self, in_channels, out_channels, with_r=False, **kwargs):
         super().__init__()
         self.addcoords = AddCoords(with_r=with_r)
-        in_size = in_channels+2
+        in_size = in_channels + 2
         if with_r:
             in_size += 1
         self.conv = nn.Conv2d(in_size, out_channels, **kwargs)
@@ -74,7 +84,10 @@ class CoordConv(nn.Module):
 
 
 def conv3x3(in_planes, out_planes, stride=1):
-    return CoordConv(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+    return CoordConv(
+        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
+    )
+
 
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
@@ -84,7 +97,7 @@ class SELayer(nn.Module):
             nn.Linear(channel, channel // reduction, bias=False),
             nn.ReLU(inplace=True),
             nn.Linear(channel // reduction, channel, bias=False),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -97,9 +110,19 @@ class SELayer(nn.Module):
 class SEBasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, groups=1,
-                 base_width=64, norm_layer=None,
-                 *, reduction=16):
+    def __init__(
+        self,
+        inplanes,
+        planes,
+        stride=1,
+        dilation=1,
+        downsample=None,
+        groups=1,
+        base_width=64,
+        norm_layer=None,
+        *,
+        reduction=16,
+    ):
         super(SEBasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = IBN_a(planes)
@@ -132,14 +155,25 @@ class SEBasicBlock(nn.Module):
 class SEBottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, groups=1,
-                 base_width=64, norm_layer=None,
-                 *, reduction=16):
+    def __init__(
+        self,
+        inplanes,
+        planes,
+        stride=1,
+        dilation=1,
+        downsample=None,
+        groups=1,
+        base_width=64,
+        norm_layer=None,
+        *,
+        reduction=16,
+    ):
         super(SEBottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = IBN_a(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
+        )
         self.bn2 = IBN_a(planes)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = IBN_a(planes * 4)
@@ -177,7 +211,9 @@ def se_resnet18(is_color, pretrained_path=None, receptive_keep=False):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(SEBasicBlock, [2, 2, 2, 2], num_feats=[64, 128, 256, 512], is_color=is_color)
+    model = ResNet(
+        SEBasicBlock, [2, 2, 2, 2], num_feats=[64, 128, 256, 512], is_color=is_color
+    )
     return model
 
 
@@ -186,7 +222,9 @@ def se_resnet34(is_color, pretrained_path=None, receptive_keep=False):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(SEBasicBlock, [3, 4, 6, 3], num_feats=[64, 128, 256, 512], is_color=is_color)
+    model = ResNet(
+        SEBasicBlock, [3, 4, 6, 3], num_feats=[64, 128, 256, 512], is_color=is_color
+    )
     return model
 
 

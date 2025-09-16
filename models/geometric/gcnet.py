@@ -15,22 +15,28 @@ class GConv(nn.Module):
         self.out_channels = out_channels
 
         self.adj = nn.Parameter(adj, requires_grad=False)
-        self.M = nn.Parameter(torch.eye(adj.size(0), dtype=torch.float), requires_grad=False)
-        self.W = nn.Parameter(torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float))
+        self.M = nn.Parameter(
+            torch.eye(adj.size(0), dtype=torch.float), requires_grad=False
+        )
+        self.W = nn.Parameter(
+            torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float)
+        )
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_channels, dtype=torch.float))
-            stdv = 1. / math.sqrt(self.W.size(2))
+            stdv = 1.0 / math.sqrt(self.W.size(2))
             self.bias.data.uniform_(-stdv, stdv)
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
     def forward(self, input):
         h0 = torch.matmul(input, self.W[0])
         h1 = torch.matmul(input, self.W[1])
 
-        output = torch.matmul(self.adj * self.M, h0) + torch.matmul(self.adj * (1 - self.M), h1)
+        output = torch.matmul(self.adj * self.M, h0) + torch.matmul(
+            self.adj * (1 - self.M), h1
+        )
 
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)
@@ -38,8 +44,15 @@ class GConv(nn.Module):
             return output
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' + str(self.in_channels) + ' -> ' + str(self.out_channels) + ')'
- 
+        return (
+            self.__class__.__name__
+            + " ("
+            + str(self.in_channels)
+            + " -> "
+            + str(self.out_channels)
+            + ")"
+        )
+
 
 class GCBlock(nn.Module):
     def __init__(self, adj, in_channels, out_channels):
@@ -64,10 +77,12 @@ class ResGCBlock(nn.Module):
         self.g_block2 = GCBlock(adj, hid_channels, out_channels)
 
         if in_channels != out_channels:
-            self.shortcut = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, bias=False)
+            self.shortcut = nn.Conv1d(
+                in_channels, out_channels, kernel_size=1, stride=1, bias=False
+            )
 
     def forward(self, x):
-        residual = self.shortcut(x) if hasattr(self, 'shortcut') else x
+        residual = self.shortcut(x) if hasattr(self, "shortcut") else x
         out = self.g_block1(x)
         out = self.g_block2(out)
 
@@ -79,7 +94,7 @@ class GCNet(nn.Module):
         super(GCNet, self).__init__()
 
         self.g_input = GCBlock(adj, in_channels, hid_channels)
-        
+
         g_layers = []
         for _ in range(num_layers):
             g_layers.append(ResGCBlock(adj, hid_channels, hid_channels, hid_channels))
@@ -93,4 +108,3 @@ class GCNet(nn.Module):
         out = self.g_out(out)
 
         return out
-

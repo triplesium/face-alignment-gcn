@@ -1,6 +1,8 @@
 import torch.nn as nn
 from models.gcn_model.sem_graph_conv import SemFullConv
 from models.gcn_model.graph_non_local import GraphNonLocal
+from functools import reduce
+
 
 class _GraphConv(nn.Module):
     def __init__(self, input_dim, output_dim, p_dropout=None):
@@ -55,7 +57,9 @@ class _GraphNonLocal(nn.Module):
 
 
 class SemFullGCN(nn.Module):
-    def __init__(self, hid_dim, coords_dim=(2, 2), num_layers=4, nodes_group=None, p_dropout=None):
+    def __init__(
+        self, hid_dim, coords_dim=(2, 2), num_layers=4, nodes_group=None, p_dropout=None
+    ):
         super(SemFullGCN, self).__init__()
 
         _gconv_input = [_GraphConv(coords_dim[0], hid_dim, p_dropout=p_dropout)]
@@ -63,7 +67,9 @@ class SemFullGCN(nn.Module):
 
         if nodes_group is None:
             for i in range(num_layers):
-                _gconv_layers.append(_ResGraphConv(hid_dim, hid_dim, hid_dim, p_dropout=p_dropout))
+                _gconv_layers.append(
+                    _ResGraphConv(hid_dim, hid_dim, hid_dim, p_dropout=p_dropout)
+                )
         else:
             group_size = len(nodes_group[0])
             assert group_size > 1
@@ -76,10 +82,16 @@ class SemFullGCN(nn.Module):
                         restored_order[i] = j
                         break
 
-            _gconv_input.append(_GraphNonLocal(hid_dim, grouped_order, restored_order, group_size))
+            _gconv_input.append(
+                _GraphNonLocal(hid_dim, grouped_order, restored_order, group_size)
+            )
             for i in range(num_layers):
-                _gconv_layers.append(_ResGraphConv(hid_dim, hid_dim, hid_dim, p_dropout=p_dropout))
-                _gconv_layers.append(_GraphNonLocal(hid_dim, grouped_order, restored_order, group_size))
+                _gconv_layers.append(
+                    _ResGraphConv(hid_dim, hid_dim, hid_dim, p_dropout=p_dropout)
+                )
+                _gconv_layers.append(
+                    _GraphNonLocal(hid_dim, grouped_order, restored_order, group_size)
+                )
 
         self.gconv_input = nn.Sequential(*_gconv_input)
         self.gconv_layers = nn.Sequential(*_gconv_layers)
@@ -90,6 +102,3 @@ class SemFullGCN(nn.Module):
         out = self.gconv_layers(out)
         out = self.gconv_output(out)
         return out
-
-
-

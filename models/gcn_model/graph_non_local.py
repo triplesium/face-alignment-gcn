@@ -3,7 +3,9 @@ from torch import nn
 
 
 class _NonLocalBlock(nn.Module):
-    def __init__(self, in_channels, inter_channels=None, dimension=3, sub_sample=1, bn_layer=True):
+    def __init__(
+        self, in_channels, inter_channels=None, dimension=3, sub_sample=1, bn_layer=True
+    ):
         super(_NonLocalBlock, self).__init__()
 
         assert dimension in [1, 2, 3]
@@ -32,18 +34,32 @@ class _NonLocalBlock(nn.Module):
             max_pool = nn.MaxPool1d
             bn = nn.BatchNorm1d
         else:
-            raise Exception('Error feature dimension.')
+            raise Exception("Error feature dimension.")
 
-        self.g = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
-                         kernel_size=1, stride=1, padding=0)
-        self.theta = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
-                             kernel_size=1, stride=1, padding=0)
-        self.phi = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
-                           kernel_size=1, stride=1, padding=0)
+        self.g = conv_nd(
+            in_channels=self.in_channels,
+            out_channels=self.inter_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.theta = conv_nd(
+            in_channels=self.in_channels,
+            out_channels=self.inter_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.phi = conv_nd(
+            in_channels=self.in_channels,
+            out_channels=self.inter_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
 
         self.concat_project = nn.Sequential(
-            nn.Conv2d(self.inter_channels * 2, 1, 1, 1, 0, bias=False),
-            nn.ReLU()
+            nn.Conv2d(self.inter_channels * 2, 1, 1, 1, 0, bias=False), nn.ReLU()
         )
 
         nn.init.kaiming_normal_(self.concat_project[0].weight)
@@ -56,17 +72,27 @@ class _NonLocalBlock(nn.Module):
 
         if bn_layer:
             self.W = nn.Sequential(
-                conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels,
-                        kernel_size=1, stride=1, padding=0),
-                bn(self.in_channels)
+                conv_nd(
+                    in_channels=self.inter_channels,
+                    out_channels=self.in_channels,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                ),
+                bn(self.in_channels),
             )
             nn.init.kaiming_normal_(self.W[0].weight)
             nn.init.constant_(self.W[0].bias, 0)
             nn.init.constant_(self.W[1].weight, 0)
             nn.init.constant_(self.W[1].bias, 0)
         else:
-            self.W = conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels,
-                             kernel_size=1, stride=1, padding=0)
+            self.W = conv_nd(
+                in_channels=self.inter_channels,
+                out_channels=self.in_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            )
             nn.init.constant_(self.W.weight, 0)
             nn.init.constant_(self.W.bias, 0)
 
@@ -109,5 +135,10 @@ class _NonLocalBlock(nn.Module):
 
 class GraphNonLocal(_NonLocalBlock):
     def __init__(self, in_channels, inter_channels=None, sub_sample=1, bn_layer=True):
-        super(GraphNonLocal, self).__init__(in_channels, inter_channels=inter_channels, dimension=1,
-                                            sub_sample=sub_sample, bn_layer=bn_layer)
+        super(GraphNonLocal, self).__init__(
+            in_channels,
+            inter_channels=inter_channels,
+            dimension=1,
+            sub_sample=sub_sample,
+            bn_layer=bn_layer,
+        )

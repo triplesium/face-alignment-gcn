@@ -1,6 +1,7 @@
 from torch import nn
 from models.preact_resnet_ibn import IBN_a
 
+
 def _make_divisible(v, divisor, min_value=None):
     """
     This function is taken from the original tf repo.
@@ -25,10 +26,19 @@ class ConvBNReLU(nn.Sequential):
     def __init__(self, in_planes, out_planes, kernel_size=3, stride=1, groups=1):
         padding = (kernel_size - 1) // 2
         super(ConvBNReLU, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            nn.Conv2d(
+                in_planes,
+                out_planes,
+                kernel_size,
+                stride,
+                padding,
+                groups=groups,
+                bias=False,
+            ),
             nn.BatchNorm2d(out_planes),
-            nn.ReLU6(inplace=True)
+            nn.ReLU6(inplace=True),
         )
+
 
 class InvertedResidual(nn.Module):
     def __init__(self, inp, oup, stride, expand_ratio):
@@ -43,13 +53,15 @@ class InvertedResidual(nn.Module):
         if expand_ratio != 1:
             # pw
             layers.append(ConvBNReLU(inp, hidden_dim, kernel_size=1))
-        layers.extend([
-            # dw
-            ConvBNReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
-            # pw-linear
-            nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-            nn.BatchNorm2d(oup),
-        ])
+        layers.extend(
+            [
+                # dw
+                ConvBNReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
+                # pw-linear
+                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+            ]
+        )
         self.conv = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -60,11 +72,13 @@ class InvertedResidual(nn.Module):
 
 
 class MobileNetV2(nn.Module):
-    def __init__(self,
-                 width_mult=1.0,
-                 inverted_residual_setting=None,
-                 round_nearest=8,
-                 block=None):
+    def __init__(
+        self,
+        width_mult=1.0,
+        inverted_residual_setting=None,
+        round_nearest=8,
+        block=None,
+    ):
         """
         MobileNet V2 main class
 
@@ -81,18 +95,15 @@ class MobileNetV2(nn.Module):
 
         if block is None:
             block = InvertedResidual
-        
+
         self.num_out_feats = [64, 128, 256, 512]
         self.downsample_ratio = 32
 
         self.input_channel = 16
         self.conv_bn_relu1 = ConvBNReLU(3, self.input_channel, stride=2)
-        
+
         # stage 0
-        setting0 = [
-        [1, 16, 1, 1],
-        [6, 32, 2, 1],
-        [6, 32, 3, 2]]
+        setting0 = [[1, 16, 1, 1], [6, 32, 2, 1], [6, 32, 3, 2]]
         setting1 = [[6, 64, 4, 1]]
         setting2 = [[6, 128, 3, 2]]
         setting3 = [[6, 256, 3, 2]]
@@ -107,7 +118,7 @@ class MobileNetV2(nn.Module):
         # weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out")
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
@@ -133,22 +144,24 @@ class MobileNetV2(nn.Module):
         out2 = self.layer2(out1)
         out3 = self.layer3(out2)
         out4 = self.layer4(out3)
-        x_dict = {'out1': out1, 'out2': out2, 'out3': out3, 'out4':out4}
+        x_dict = {"out1": out1, "out2": out2, "out3": out3, "out4": out4}
         return x_dict
 
+
 def mobilenet_v2(**kwargs):
-    print('create mobilenetV2')
+    print("create mobilenetV2")
     model = MobileNetV2()
 
     return model
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import torch
+
     model = MobileNetV2()
     x = torch.Tensor(32, 3, 256, 256)
     x_dict = model(x)
-    print(x_dict['out1'].shape)
-    print(x_dict['out2'].shape)
-    print(x_dict['out3'].shape)
-    print(x_dict['out4'].shape)
+    print(x_dict["out1"].shape)
+    print(x_dict["out2"].shape)
+    print(x_dict["out3"].shape)
+    print(x_dict["out4"].shape)

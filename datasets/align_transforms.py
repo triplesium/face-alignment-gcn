@@ -5,34 +5,38 @@
 import numpy as np
 import random
 import cv2
+
 cv2.ocl.setUseOpenCL(False)
 from PIL import Image
 import torchvision.transforms.functional as TF
 from torchvision.transforms import Compose
 import numbers
 import matplotlib.pyplot as plt
-from datasets.landmarks_to_heatmap import landmarks_to_boundary_heatmap, landmarks_to_landmark_heatmap
+from datasets.landmarks_to_heatmap import (
+    landmarks_to_boundary_heatmap,
+    landmarks_to_landmark_heatmap,
+)
 from datasets.procrustes import procrustes
 
 
 class RandomBlur(object):
     def __call__(self, sample):
-        random_blur = random.uniform(0.,1.)
+        random_blur = random.uniform(0.0, 1.0)
         if random_blur < 0.4:
-            image = sample['image']
+            image = sample["image"]
 
-            if random_blur > 0.2: # Gaussian Blur
-                image = cv2.GaussianBlur(image, ksize=(0,0), sigmaX=2, sigmaY=2)
+            if random_blur > 0.2:  # Gaussian Blur
+                image = cv2.GaussianBlur(image, ksize=(0, 0), sigmaX=2, sigmaY=2)
             else:
                 angle = random.randint(0, 180)
                 image = self.motion_blur(image, ksize=5, angle=angle)
 
-            sample['image'] = image
+            sample["image"] = image
         return sample
 
     def motion_blur(self, src, ksize=5, angle=45):
         src = np.array(src)
-        R = cv2.getRotationMatrix2D((ksize/2 - 0.5, ksize/2 - 0.5), angle, 1)
+        R = cv2.getRotationMatrix2D((ksize / 2 - 0.5, ksize / 2 - 0.5), angle, 1)
         kernel = np.diag(np.ones(ksize)) / ksize
         kernel = cv2.warpAffine(kernel, R, (ksize, ksize))
         dst = cv2.filter2D(src, -1, kernel)
@@ -40,11 +44,12 @@ class RandomBlur(object):
         dst = np.array(dst, dtype=np.uint8)
         return dst
 
+
 class RandomOcclude(object):
     def __init__(self, img_size, aspect_ratio=[0.4, 2.5], occ_ratio=0.2):
         self.img_size = img_size
         self.aspect_ratio = aspect_ratio
-        self.occ_area = occ_ratio*img_size*img_size
+        self.occ_area = occ_ratio * img_size * img_size
 
     def _refine_rect(self, lt, rb):
         img_size = self.img_size
@@ -60,27 +65,32 @@ class RandomOcclude(object):
         return (l, t), (r, b)
 
     def __call__(self, sample):
-        random_occ = random.uniform(0., 1.)
+        random_occ = random.uniform(0.0, 1.0)
         if random_occ > 0.5:
-            x_c = random.uniform(0., self.img_size)
-            y_c = random.uniform(0., self.img_size)
+            x_c = random.uniform(0.0, self.img_size)
+            y_c = random.uniform(0.0, self.img_size)
             aspect_ratio = random.uniform(self.aspect_ratio[0], self.aspect_ratio[1])
             # w*h = occ_area; w/h = aspect_ratio
-            w = (aspect_ratio*self.occ_area)**(0.5)
+            w = (aspect_ratio * self.occ_area) ** (0.5)
             h = w / aspect_ratio
 
-            l = int(x_c - w/2)
-            r = int(x_c + w/2)
-            t = int(y_c - h/2)
-            b = int(y_c + h/2)
+            l = int(x_c - w / 2)
+            r = int(x_c + w / 2)
+            t = int(y_c - h / 2)
+            b = int(y_c + h / 2)
 
             (l, t), (r, b) = self._refine_rect((l, t), (r, b))
-            image = sample['image']
-            color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+            image = sample["image"]
+            color = (
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255),
+            )
             cv2.rectangle(image, (l, t), (r, b), color=color, thickness=-1)
-            sample['image'] = image
+            sample["image"] = image
 
         return sample
+
 
 class GuidedAffine(object):
     """Affine transformation of the image according to guided pose, typically mean pose, and pose per se
@@ -89,22 +99,23 @@ class GuidedAffine(object):
     Description:
         Given guided pose and original pose, function `procrustes` will calculate an affine matrix,
         which attemps to project the original pose to guided pose. The affined matrix then appied to
-        original image 
+        original image
 
     """
-    def __init__(self, guided_pose, border_value=(127,127,127)):
+
+    def __init__(self, guided_pose, border_value=(127, 127, 127)):
         self.guided_pose = guided_pose
         self.border_value = border_value
 
     @staticmethod
-    def _pointsAffine(points, matrix): 
+    def _pointsAffine(points, matrix):
         matrix = matrix.copy()
-        matrix[0,1] *= -1
-        matrix[1,0] *= -1
+        matrix[0, 1] *= -1
+        matrix[1, 0] *= -1
 
         points = points.reshape(-1, 2)
-        points = np.matmul(points, matrix[:,:2]) 
-        points += np.transpose(matrix[:,2])   
+        points = np.matmul(points, matrix[:, :2])
+        points += np.transpose(matrix[:, 2])
         points = points.reshape(-1)
 
         return points
@@ -112,15 +123,24 @@ class GuidedAffine(object):
     def __call__(self, sample):
         # using predicted landmarks and guided pose to calculate affine matrix
         # using the affine matrix to warp image and landmarks ground true
-        image_origin = sample['image_origin']
-        landmark_origin = sample['landmarks_origin']
-        landmark_pred = sample['landmarks_pred']
-        matrix = procrustes(self.guided_pose, landmark_pred, scaling=True, reflection=False)
-        sample['landmarks'] = GuidedAffine._pointsAffine(landmark_origin, matrix)
-        sample['image'] = cv2.warpAffine(image_origin, matrix, (image_origin.shape[1], image_origin.shape[0]),\
-                                         cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, borderValue=self.border_value)
+        image_origin = sample["image_origin"]
+        landmark_origin = sample["landmarks_origin"]
+        landmark_pred = sample["landmarks_pred"]
+        matrix = procrustes(
+            self.guided_pose, landmark_pred, scaling=True, reflection=False
+        )
+        sample["landmarks"] = GuidedAffine._pointsAffine(landmark_origin, matrix)
+        sample["image"] = cv2.warpAffine(
+            image_origin,
+            matrix,
+            (image_origin.shape[1], image_origin.shape[0]),
+            cv2.INTER_LINEAR,
+            cv2.BORDER_CONSTANT,
+            borderValue=self.border_value,
+        )
 
         return sample
+
 
 class ToLandmarkHeatmap(object):
     """
@@ -133,17 +153,21 @@ class ToLandmarkHeatmap(object):
         self.sigma = sigma
 
     def __call__(self, sample):
-        landmarks = sample['landmarks']
-        sample['heatmap'] = landmarks_to_landmark_heatmap(points=landmarks,
-                                                          heatmap_size=self.heatmap_size,
-                                                          label_size=self.label_size,
-                                                          sigma=self.sigma)
+        landmarks = sample["landmarks"]
+        sample["heatmap"] = landmarks_to_landmark_heatmap(
+            points=landmarks,
+            heatmap_size=self.heatmap_size,
+            label_size=self.label_size,
+            sigma=self.sigma,
+        )
         return sample
-        
+
+
 class ToBoundaryHeatmap(object):
     """
     Transform landmarks to multi-channel boundary heatmaps
     """
+
     def __init__(self, heatmap_size=64, label_size=256, sigma=1):
         if isinstance(heatmap_size, int):
             heatmap_size = (heatmap_size, heatmap_size)
@@ -156,40 +180,305 @@ class ToBoundaryHeatmap(object):
         self.sigma = sigma
 
     def __call__(self, sample):
-        landmarks = sample['landmarks']
-        sample['boundary'] = landmarks_to_boundary_heatmap(points=landmarks, 
-                                                           arrange_mode='global',
-                                                           heatmap_size=self.heatmap_size,
-                                                           label_size=self.label_size, 
-                                                           sigma=self.sigma)
+        landmarks = sample["landmarks"]
+        sample["boundary"] = landmarks_to_boundary_heatmap(
+            points=landmarks,
+            arrange_mode="global",
+            heatmap_size=self.heatmap_size,
+            label_size=self.label_size,
+            sigma=self.sigma,
+        )
         return sample
+
 
 def _get_corr_list(num_pts):
     """Show indices for landmarks mirror"""
-    assert num_pts in [29, 68, 98, 106], '#landmarks should be 29, 68, 98 or 106, but got {}'.format(num_pts)
+    assert num_pts in [
+        29,
+        68,
+        98,
+        106,
+    ], "#landmarks should be 29, 68, 98 or 106, but got {}".format(num_pts)
     if num_pts == 29:
-        corr_list = [0, 1, 4, 6, 2, 3, 5, 7, 8, 9, 13, 15, 12, 14, 10, 11, 16, 17, 18, 19, 22, 23]
+        corr_list = [
+            0,
+            1,
+            4,
+            6,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            13,
+            15,
+            12,
+            14,
+            10,
+            11,
+            16,
+            17,
+            18,
+            19,
+            22,
+            23,
+        ]
     elif num_pts == 68:
-        corr_list = [0, 16, 1, 15, 2, 14, 3, 13, 4, 12, 5, 11, 6, 10, 7, 9, 17, 26, 18, 25, 19, 24, 20, 23, 21, 22, 36,
-                     45, 37, 44, 38, 43, 39, 42, 41, 46, 40, 47, 31, 35, 32, 34, 48, 54, 49, 53, 50, 52, 60, 64, 61, 63,
-                     67, 65, 59, 55, 58, 56]
+        corr_list = [
+            0,
+            16,
+            1,
+            15,
+            2,
+            14,
+            3,
+            13,
+            4,
+            12,
+            5,
+            11,
+            6,
+            10,
+            7,
+            9,
+            17,
+            26,
+            18,
+            25,
+            19,
+            24,
+            20,
+            23,
+            21,
+            22,
+            36,
+            45,
+            37,
+            44,
+            38,
+            43,
+            39,
+            42,
+            41,
+            46,
+            40,
+            47,
+            31,
+            35,
+            32,
+            34,
+            48,
+            54,
+            49,
+            53,
+            50,
+            52,
+            60,
+            64,
+            61,
+            63,
+            67,
+            65,
+            59,
+            55,
+            58,
+            56,
+        ]
     elif num_pts == 98:
-        corr_list = [0, 32, 1, 31, 2, 30, 3, 29, 4, 28, 5, 27, 6, 26, 7, 25, 8, 24, 9, 23, 10, 22, 11, 21, 12, 20, 13, 19,
-                     14, 18, 15, 17, 33, 46, 34, 45, 35, 44, 36, 43, 37, 42, 38, 50, 39, 49, 40, 48, 41, 47, 55, 59, 56, 58,
-                     60, 72, 61, 71, 62, 70, 63, 69, 64, 68, 65, 75, 66, 74, 67, 73, 76, 82, 77, 81, 78, 80, 88, 92, 89, 91,
-                     95, 93, 87, 83, 86, 84, 96, 97]
+        corr_list = [
+            0,
+            32,
+            1,
+            31,
+            2,
+            30,
+            3,
+            29,
+            4,
+            28,
+            5,
+            27,
+            6,
+            26,
+            7,
+            25,
+            8,
+            24,
+            9,
+            23,
+            10,
+            22,
+            11,
+            21,
+            12,
+            20,
+            13,
+            19,
+            14,
+            18,
+            15,
+            17,
+            33,
+            46,
+            34,
+            45,
+            35,
+            44,
+            36,
+            43,
+            37,
+            42,
+            38,
+            50,
+            39,
+            49,
+            40,
+            48,
+            41,
+            47,
+            55,
+            59,
+            56,
+            58,
+            60,
+            72,
+            61,
+            71,
+            62,
+            70,
+            63,
+            69,
+            64,
+            68,
+            65,
+            75,
+            66,
+            74,
+            67,
+            73,
+            76,
+            82,
+            77,
+            81,
+            78,
+            80,
+            88,
+            92,
+            89,
+            91,
+            95,
+            93,
+            87,
+            83,
+            86,
+            84,
+            96,
+            97,
+        ]
     elif num_pts == 106:
-        corr_list = [0, 32, 1, 31, 2, 30, 3, 29, 4, 28, 5, 27, 6, 26, 7, 25, 8, 24, 9, 23, 10, 22, 11, 21, 12, 20, 13,
-                     19,
-                     14, 18, 15, 17, 33, 42, 34, 41, 35, 40, 36, 39, 37, 38, 64, 71, 65, 70, 66, 69, 67, 68, 52, 61, 53,
-                     60,
-                     72, 75, 54, 59, 55, 58, 56, 63, 73, 76, 57, 62, 74, 77, 104, 105, 78, 79, 80, 81, 82, 83, 47, 51,
-                     48, 50,
-                     84, 90, 96, 100, 85, 89, 86, 88, 95, 91, 94, 92, 97, 99, 103, 101]
-    
+        corr_list = [
+            0,
+            32,
+            1,
+            31,
+            2,
+            30,
+            3,
+            29,
+            4,
+            28,
+            5,
+            27,
+            6,
+            26,
+            7,
+            25,
+            8,
+            24,
+            9,
+            23,
+            10,
+            22,
+            11,
+            21,
+            12,
+            20,
+            13,
+            19,
+            14,
+            18,
+            15,
+            17,
+            33,
+            42,
+            34,
+            41,
+            35,
+            40,
+            36,
+            39,
+            37,
+            38,
+            64,
+            71,
+            65,
+            70,
+            66,
+            69,
+            67,
+            68,
+            52,
+            61,
+            53,
+            60,
+            72,
+            75,
+            54,
+            59,
+            55,
+            58,
+            56,
+            63,
+            73,
+            76,
+            57,
+            62,
+            74,
+            77,
+            104,
+            105,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            47,
+            51,
+            48,
+            50,
+            84,
+            90,
+            96,
+            100,
+            85,
+            89,
+            86,
+            88,
+            95,
+            91,
+            94,
+            92,
+            97,
+            99,
+            103,
+            101,
+        ]
 
     corr_list = np.array(corr_list, dtype=np.uint8).reshape(-1, 2)
     return corr_list
+
 
 def _get_affine_matrix(center, angle, translations, zoom, shear, do_mirror=False):
     """Compute affine matrix from affine transformation"""
@@ -201,7 +490,7 @@ def _get_affine_matrix(center, angle, translations, zoom, shear, do_mirror=False
 
     mirror_flag = False
     if do_mirror:
-        mirror_rng = random.uniform(0., 1.)
+        mirror_rng = random.uniform(0.0, 1.0)
         if mirror_rng > 0.5:
             mirror_flag = True
             matrix[0, 0] = -matrix[0, 0]
@@ -217,14 +506,15 @@ class Normalize(object):
     the mean and std. are calculated from each channel of the given image
     """
 
-    def __call__(self, sample, type='z-score'):        
-        image, landmarks = sample['image'], sample['landmarks']
+    def __call__(self, sample, type="z-score"):
+        image, landmarks = sample["image"], sample["landmarks"]
 
         if len(image.shape) == 2:
-            #gray img
-            if type == 'z-score':
+            # gray img
+            if type == "z-score":
                 mean, std = cv2.meanStdDev(image)
-                if std < 1e-6: std = 1.
+                if std < 1e-6:
+                    std = 1.0
                 image = (image - mean) / std
                 image = image[:, :, None].astype(np.float32)
 
@@ -233,15 +523,15 @@ class Normalize(object):
                 image = image[:, :, None]
 
         if len(image.shape) == 3:
-            #color img
-            if type == 'z-score':
+            # color img
+            if type == "z-score":
                 mean, std = cv2.meanStdDev(image)
-                mean, std = mean[:,0], std[:,0]
+                mean, std = mean[:, 0], std[:, 0]
                 std = np.where(std < 1e-6, 1, std)
-                image = (image - mean)/std
+                image = (image - mean) / std
                 image = image.astype(np.float32)
 
-        sample['image'] = image
+        sample["image"] = image
         return sample
 
 
@@ -259,7 +549,7 @@ class Rescale(object):
         self.output_size = output_size
 
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image, landmarks = sample["image"], sample["landmarks"]
 
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
@@ -278,8 +568,8 @@ class Rescale(object):
         # x and y axes are axis 1 and 0 respectively
         landmarks = landmarks * [new_w / w, new_h / h]
 
-        sample['image'] = img
-        sample['landmarks'] = landmarks
+        sample["image"] = img
+        sample["landmarks"] = landmarks
         return sample
 
 
@@ -300,7 +590,7 @@ class CenterCrop(object):
             self.output_size = output_size
 
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image, landmarks = sample["image"], sample["landmarks"]
 
         h, w = image.shape[:2]
         new_h, new_w = self.output_size
@@ -308,15 +598,15 @@ class CenterCrop(object):
         top = (h - new_h) // 2
         left = (w - new_w) // 2
 
-        image = image[top: top + new_h, left: left + new_w]
+        image = image[top : top + new_h, left : left + new_w]
 
         for i in range(int(len(landmarks) / 2)):
             landmarks[2 * i] -= left
             landmarks[2 * i + 1] -= top
 
-        sample['image'] = image
-        sample['landmarks'] = landmarks
-        sample['image_cv2'] = image.astype(np.uint8)
+        sample["image"] = image
+        sample["landmarks"] = landmarks
+        sample["image_cv2"] = image.astype(np.uint8)
 
         return sample
 
@@ -344,28 +634,40 @@ class RandomAffine(object):
         fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, degrees, translate=None, scale=None, shear=None, resample=False,
-                 fillcolor=0, mirror=False, corr_list=None):
+    def __init__(
+        self,
+        degrees,
+        translate=None,
+        scale=None,
+        shear=None,
+        resample=False,
+        fillcolor=0,
+        mirror=False,
+        corr_list=None,
+    ):
         if isinstance(degrees, numbers.Number):
             if degrees < 0:
                 raise ValueError("If degrees is a single number, it must be positive.")
             self.degrees = (-degrees, degrees)
         else:
-            assert isinstance(degrees, (tuple, list)) and len(degrees) == 2, \
-                "degrees should be a list or tuple and it must be of length 2."
+            assert (
+                isinstance(degrees, (tuple, list)) and len(degrees) == 2
+            ), "degrees should be a list or tuple and it must be of length 2."
             self.degrees = degrees
 
         if translate is not None:
-            assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
-                "translate should be a list or tuple and it must be of length 2."
+            assert (
+                isinstance(translate, (tuple, list)) and len(translate) == 2
+            ), "translate should be a list or tuple and it must be of length 2."
             for t in translate:
                 if not (0.0 <= t <= 1.0):
                     raise ValueError("translation values should be between 0 and 1")
         self.translate = translate
 
         if scale is not None:
-            assert isinstance(scale, (tuple, list)) and len(scale) == 2, \
-                "scale should be a list or tuple and it must be of length 2."
+            assert (
+                isinstance(scale, (tuple, list)) and len(scale) == 2
+            ), "scale should be a list or tuple and it must be of length 2."
             for s in scale:
                 if s <= 0:
                     raise ValueError("scale values should be positive")
@@ -374,11 +676,14 @@ class RandomAffine(object):
         if shear is not None:
             if isinstance(shear, numbers.Number):
                 if shear < 0:
-                    raise ValueError("If shear is a single number, it must be positive.")
+                    raise ValueError(
+                        "If shear is a single number, it must be positive."
+                    )
                 self.shear = (-shear, shear)
             else:
-                assert isinstance(shear, (tuple, list)) and len(shear) == 2, \
-                    "shear should be a list or tuple and it must be of length 2."
+                assert (
+                    isinstance(shear, (tuple, list)) and len(shear) == 2
+                ), "shear should be a list or tuple and it must be of length 2."
                 self.shear = shear
         else:
             self.shear = shear
@@ -399,8 +704,10 @@ class RandomAffine(object):
         if translate is not None:
             max_dx = translate[0] * img_size[0]
             max_dy = translate[1] * img_size[1]
-            translations = (np.round(random.uniform(-max_dx, max_dx)),
-                            np.round(random.uniform(-max_dy, max_dy)))
+            translations = (
+                np.round(random.uniform(-max_dx, max_dx)),
+                np.round(random.uniform(-max_dy, max_dy)),
+            )
         else:
             translations = (0, 0)
 
@@ -426,23 +733,32 @@ class RandomAffine(object):
         Returns:
             PIL Image: Affine transformed image.
         """
-        image, landmarks = sample['image'], sample['landmarks']
+        image, landmarks = sample["image"], sample["landmarks"]
         # print('before affine transform', len(landmarks))
         h, w = image.shape[:2]
-        center = (w/2 - 0.5, h/2 - 0.5)
-        angle, translations, zoom, shear = \
-            self.get_params(self.degrees, self.translate, self.scale, self.shear, [h, w])
+        center = (w / 2 - 0.5, h / 2 - 0.5)
+        angle, translations, zoom, shear = self.get_params(
+            self.degrees, self.translate, self.scale, self.shear, [h, w]
+        )
 
-        matrix, mirrored = _get_affine_matrix(center, angle, translations, zoom, shear, self.mirror)
+        matrix, mirrored = _get_affine_matrix(
+            center, angle, translations, zoom, shear, self.mirror
+        )
         # src = np.array(image).astype(np.uint8)
         # src = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        dst = cv2.warpAffine(image, matrix, (w,h), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT,
-                             borderValue=(127, 127, 127))
+        dst = cv2.warpAffine(
+            image,
+            matrix,
+            (w, h),
+            cv2.INTER_LINEAR,
+            cv2.BORDER_CONSTANT,
+            borderValue=(127, 127, 127),
+        )
         # landmarks tranformation
         matrix = np.resize(matrix, (6,))
         points = np.resize(np.array(landmarks).copy(), (int(len(landmarks) / 2), 2))
 
-        for i in range(len(landmarks)//2):
+        for i in range(len(landmarks) // 2):
             x, y = points[i, :]
             x_new = matrix[0] * x + matrix[1] * y + matrix[2]
             y_new = matrix[3] * x + matrix[4] * y + matrix[5]
@@ -455,12 +771,20 @@ class RandomAffine(object):
             for k in range(self.corr_list.shape[0]):
                 temp_x = landmarks[2 * self.corr_list[k, 0]]
                 temp_y = landmarks[2 * self.corr_list[k, 0] + 1]
-                landmarks[2 * self.corr_list[k, 0]], landmarks[2 * self.corr_list[k, 0] + 1] = \
-                    landmarks[2 * self.corr_list[k, 1]], landmarks[2 * self.corr_list[k, 1] + 1]
-                landmarks[2 * self.corr_list[k, 1]], landmarks[2 * self.corr_list[k, 1] + 1] = temp_x, temp_y
+                (
+                    landmarks[2 * self.corr_list[k, 0]],
+                    landmarks[2 * self.corr_list[k, 0] + 1],
+                ) = (
+                    landmarks[2 * self.corr_list[k, 1]],
+                    landmarks[2 * self.corr_list[k, 1] + 1],
+                )
+                (
+                    landmarks[2 * self.corr_list[k, 1]],
+                    landmarks[2 * self.corr_list[k, 1] + 1],
+                ) = (temp_x, temp_y)
 
-        sample['image'] = dst
-        sample['landmarks'] = landmarks
+        sample["image"] = dst
+        sample["landmarks"] = landmarks
         return sample
 
 
@@ -488,10 +812,10 @@ class Grayscale(object):
         Returns:
             PIL Image: Randomly grayscaled image.
         """
-        image = sample['image']
+        image = sample["image"]
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        sample['image'] = gray_image
+        sample["image"] = gray_image
         return sample
 
 
@@ -510,10 +834,8 @@ class ToTensor(object):
         Returns:
             Tensor: Converted image (scale by 1/255).
         """
-        image = sample['image']
+        image = sample["image"]
         image = TF.to_tensor(image)
 
-        sample['image'] = image
+        sample["image"] = image
         return sample
-
-

@@ -14,24 +14,32 @@ class SemCHGraphConv(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.W = nn.Parameter(torch.zeros(size=(2, in_features, out_features), dtype=torch.float))
+        self.W = nn.Parameter(
+            torch.zeros(size=(2, in_features, out_features), dtype=torch.float)
+        )
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         self.adj = adj.unsqueeze(0).repeat(out_features, 1, 1)
-        self.m = (self.adj > 0)
-        self.e = nn.Parameter(torch.zeros(out_features, len(self.m[0].nonzero()), dtype=torch.float))
+        self.m = self.adj > 0
+        self.e = nn.Parameter(
+            torch.zeros(out_features, len(self.m[0].nonzero()), dtype=torch.float)
+        )
         nn.init.constant_(self.e.data, 1)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_features, dtype=torch.float))
-            stdv = 1. / math.sqrt(self.W.size(1))
+            stdv = 1.0 / math.sqrt(self.W.size(1))
             self.bias.data.uniform_(-stdv, stdv)
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
     def forward(self, input):
-        h0 = torch.matmul(input, self.W[0]).unsqueeze(1).transpose(1, 3)  # B * C * J * 1
-        h1 = torch.matmul(input, self.W[1]).unsqueeze(1).transpose(1, 3)  # B * C * J * 1
+        h0 = (
+            torch.matmul(input, self.W[0]).unsqueeze(1).transpose(1, 3)
+        )  # B * C * J * 1
+        h1 = (
+            torch.matmul(input, self.W[1]).unsqueeze(1).transpose(1, 3)
+        )  # B * C * J * 1
 
         adj = -9e15 * torch.ones_like(self.adj).to(input.device)  # C * J * J
         adj[self.m] = self.e.view(-1)
@@ -48,4 +56,11 @@ class SemCHGraphConv(nn.Module):
             return output
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
+        return (
+            self.__class__.__name__
+            + " ("
+            + str(self.in_features)
+            + " -> "
+            + str(self.out_features)
+            + ")"
+        )

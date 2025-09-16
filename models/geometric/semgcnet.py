@@ -8,13 +8,14 @@ class MultiHeadSemGConv(nn.Module):
     def __init__(self, adj, in_channels, out_channels, bias=True, num_head=4):
         super(MultiHeadSemGConv, self).__init__()
         num_head = min(out_channels, num_head)
-        head_channels = out_channels//num_head
+        head_channels = out_channels // num_head
         self.head_sem = []
         for _ in range(num_head):
             self.head_sem.append(SemGConv(adj, in_channels, head_channels).cuda())
 
     def forward(self, x):
         return torch.cat([sem(x) for sem in self.head_sem], dim=2)
+
 
 class MultiHeadSemGCBlock(nn.Module):
     def __init__(self, adj, in_channels, out_channels, num_head=4):
@@ -30,6 +31,7 @@ class MultiHeadSemGCBlock(nn.Module):
 
         return x
 
+
 class MultiHeadResSemGCBlock(nn.Module):
     def __init__(self, adj, in_channels, out_channels, hid_channels, num_head=4):
         super(MultiHeadResSemGCBlock, self).__init__()
@@ -38,24 +40,33 @@ class MultiHeadResSemGCBlock(nn.Module):
         self.sem_block2 = MultiHeadSemGCBlock(adj, hid_channels, out_channels, num_head)
 
         if in_channels != out_channels:
-            self.shortcut = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, bias=False)
+            self.shortcut = nn.Conv1d(
+                in_channels, out_channels, kernel_size=1, stride=1, bias=False
+            )
 
     def forward(self, x):
-        residual = self.shortcut(x) if hasattr(self, 'shortcut') else x
+        residual = self.shortcut(x) if hasattr(self, "shortcut") else x
         out = self.sem_block1(x)
         out = self.sem_block2(out)
 
         return out + residual
 
+
 class MultiHeadSemGCNet(nn.Module):
-    def __init__(self, adj, in_channels, out_channels, hid_channels, num_layers=4, num_head=4):
+    def __init__(
+        self, adj, in_channels, out_channels, hid_channels, num_layers=4, num_head=4
+    ):
         super(MultiHeadSemGCNet, self).__init__()
 
         self.sem_input = MultiHeadSemGCBlock(adj, in_channels, hid_channels, num_head)
-        
+
         sem_layers = []
         for _ in range(num_layers):
-            sem_layers.append(MultiHeadResSemGCBlock(adj, hid_channels, hid_channels, hid_channels, num_head))
+            sem_layers.append(
+                MultiHeadResSemGCBlock(
+                    adj, hid_channels, hid_channels, hid_channels, num_head
+                )
+            )
 
         self.sem_layers = nn.Sequential(*sem_layers)
         self.sem_out = MultiHeadSemGConv(adj, hid_channels, out_channels, num_head)
@@ -67,6 +78,7 @@ class MultiHeadSemGCNet(nn.Module):
 
         return out
 
+
 class SemGConv(nn.Module):
     """
     Semantic graph convolution layer
@@ -77,20 +89,22 @@ class SemGConv(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        self.W = nn.Parameter(torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float))
+        self.W = nn.Parameter(
+            torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float)
+        )
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         self.adj = adj
-        self.m = (self.adj > 0)
+        self.m = self.adj > 0
         self.e = nn.Parameter(torch.zeros(1, len(self.m.nonzero()), dtype=torch.float))
         nn.init.constant_(self.e.data, 1)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_channels, dtype=torch.float))
-            stdv = 1. / math.sqrt(self.W.size(2))
+            stdv = 1.0 / math.sqrt(self.W.size(2))
             self.bias.data.uniform_(-stdv, stdv)
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
     def forward(self, input):
         h0 = torch.matmul(input, self.W[0])
@@ -109,8 +123,15 @@ class SemGConv(nn.Module):
             return output
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' + str(self.in_channels) + ' -> ' + str(self.out_channels) + ')'
- 
+        return (
+            self.__class__.__name__
+            + " ("
+            + str(self.in_channels)
+            + " -> "
+            + str(self.out_channels)
+            + ")"
+        )
+
 
 class SemGCBlock(nn.Module):
     def __init__(self, adj, in_channels, out_channels):
@@ -135,10 +156,12 @@ class ResSemGCBlock(nn.Module):
         self.sem_block2 = SemGCBlock(adj, hid_channels, out_channels)
 
         if in_channels != out_channels:
-            self.shortcut = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, bias=False)
+            self.shortcut = nn.Conv1d(
+                in_channels, out_channels, kernel_size=1, stride=1, bias=False
+            )
 
     def forward(self, x):
-        residual = self.shortcut(x) if hasattr(self, 'shortcut') else x
+        residual = self.shortcut(x) if hasattr(self, "shortcut") else x
         out = self.sem_block1(x)
         out = self.sem_block2(out)
 
@@ -150,10 +173,12 @@ class SemGCNet(nn.Module):
         super(SemGCNet, self).__init__()
 
         self.sem_input = SemGCBlock(adj, in_channels, hid_channels)
-        
+
         sem_layers = []
         for _ in range(num_layers):
-            sem_layers.append(ResSemGCBlock(adj, hid_channels, hid_channels, hid_channels))
+            sem_layers.append(
+                ResSemGCBlock(adj, hid_channels, hid_channels, hid_channels)
+            )
 
         self.sem_layers = nn.Sequential(*sem_layers)
         self.sem_out = SemGConv(adj, hid_channels, out_channels)
@@ -164,4 +189,3 @@ class SemGCNet(nn.Module):
         out = self.sem_out(out)
 
         return out
-

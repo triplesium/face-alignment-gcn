@@ -2,6 +2,7 @@ import torch.nn as nn
 from models.gcn_model.sem_graph_conv import SemSelfConv
 from models.gcn_model.graph_non_local import GraphNonLocal
 
+
 class _GraphConv(nn.Module):
     def __init__(self, input_dim, output_dim, p_dropout=None):
         super(_GraphConv, self).__init__()
@@ -66,7 +67,7 @@ class SemSelfGCN(nn.Module):
                 _gconv_layers.append(_ResGraphConv(hid_dim, hid_dim, hid_dim))
             self.gconv_layers = nn.Sequential(*_gconv_layers)
         else:
-            print('=========> zeros layers')
+            print("=========> zeros layers")
 
         self.gconv_input = nn.Sequential(*_gconv_input)
         self.gconv_output = SemSelfConv(hid_dim, coords_dim[1])
@@ -77,6 +78,3 @@ class SemSelfGCN(nn.Module):
             out = self.gconv_layers(out)
         out = self.gconv_output(out)
         return out
-
-
-

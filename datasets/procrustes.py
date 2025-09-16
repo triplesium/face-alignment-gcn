@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def procrustes(X, Y, scaling=True, reflection='best'):
+def procrustes(X, Y, scaling=True, reflection="best"):
     """
     This function is taken from here:
     https://stackoverflow.com/a/18927641.
@@ -55,7 +55,7 @@ def procrustes(X, Y, scaling=True, reflection='best'):
     T = np.matmul(V, U.T)  # shape [p, p]
     # T is orthogonal
 
-    if reflection is not 'best':
+    if reflection is not "best":
 
         # does the current solution use a reflection?
         has_reflection = np.linalg.det(T) < 0
@@ -90,11 +90,11 @@ def procrustes(X, Y, scaling=True, reflection='best'):
     = b * normY * Y0 * T + muX =
     = Z
     """
-    matrix = np.zeros((2,3))
-    matrix[:,:2] = b*T
-    matrix[0,1] *= -1
-    matrix[1,0] *= -1 
-    matrix[:,2] = c
+    matrix = np.zeros((2, 3))
+    matrix[:, :2] = b * T
+    matrix[0, 1] *= -1
+    matrix[1, 0] *= -1
+    matrix[:, 2] = c
 
     # Z = Z.reshape(-1)
-    return matrix 
+    return matrix

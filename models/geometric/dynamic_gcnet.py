@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from models.geometric.relation_learner import RelationLearner
 
+
 class DynamicGConv(nn.Module):
     """
     graph convolution layer
@@ -15,26 +16,32 @@ class DynamicGConv(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        self.M = nn.Parameter(torch.eye(adj.size(0), dtype=torch.float), requires_grad=False)
+        self.M = nn.Parameter(
+            torch.eye(adj.size(0), dtype=torch.float), requires_grad=False
+        )
 
         self.adj = adj
-        self.m = (self.adj > 0)
+        self.m = self.adj > 0
 
-        self.W = nn.Parameter(torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float))
+        self.W = nn.Parameter(
+            torch.zeros(size=(2, in_channels, out_channels), dtype=torch.float)
+        )
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_channels, dtype=torch.float))
-            stdv = 1. / math.sqrt(self.W.size(2))
+            stdv = 1.0 / math.sqrt(self.W.size(2))
             self.bias.data.uniform_(-stdv, stdv)
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
     def forward(self, input, adj_weight):
         h0 = torch.matmul(input, self.W[0])
         h1 = torch.matmul(input, self.W[1])
 
-        adj = -9e15 * torch.ones(input.size(0), self.adj.size(0), self.adj.size(1)).to(input.device)
+        adj = -9e15 * torch.ones(input.size(0), self.adj.size(0), self.adj.size(1)).to(
+            input.device
+        )
         adj[:, self.m] = adj_weight
         adj = F.softmax(adj.view(-1, self.adj.size(0)), dim=1)
         adj = adj.view(-1, self.adj.size(0), self.adj.size(0))
@@ -47,8 +54,15 @@ class DynamicGConv(nn.Module):
             return output
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' + str(self.in_channels) + ' -> ' + str(self.out_channels) + ')'
- 
+        return (
+            self.__class__.__name__
+            + " ("
+            + str(self.in_channels)
+            + " -> "
+            + str(self.out_channels)
+            + ")"
+        )
+
 
 class DynamicGCBlock(nn.Module):
     def __init__(self, adj, in_channels, out_channels):
@@ -73,28 +87,43 @@ class DynamicResGCBlock(nn.Module):
         self.g_block2 = DynamicGCBlock(adj, hid_channels, out_channels)
 
         if in_channels != out_channels:
-            self.shortcut = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, bias=False)
+            self.shortcut = nn.Conv1d(
+                in_channels, out_channels, kernel_size=1, stride=1, bias=False
+            )
 
     def forward(self, x_dict):
-        x = x_dict['x']
-        adj = x_dict['adj']
-        residual = self.shortcut(x) if hasattr(self, 'shortcut') else x
+        x = x_dict["x"]
+        adj = x_dict["adj"]
+        residual = self.shortcut(x) if hasattr(self, "shortcut") else x
         out = self.g_block1(x, adj)
         out = self.g_block2(out, adj)
 
-        return {'x': out + residual, 'adj': adj}
+        return {"x": out + residual, "adj": adj}
 
 
 class DynamicGCNet(nn.Module):
-    def __init__(self, adj, in_channels, out_channels, hid_channels, num_points, top_k=3, num_layers=4):
+    def __init__(
+        self,
+        adj,
+        in_channels,
+        out_channels,
+        hid_channels,
+        num_points,
+        top_k=3,
+        num_layers=4,
+    ):
         super(DynamicGCNet, self).__init__()
 
-        self.relation_learner = RelationLearner(512, num_points, top_k=top_k) # TODO hard code here
-        self.g_input = DynamicGCBlock(adj, in_channels, hid_channels) 
-        
+        self.relation_learner = RelationLearner(
+            512, num_points, top_k=top_k
+        )  # TODO hard code here
+        self.g_input = DynamicGCBlock(adj, in_channels, hid_channels)
+
         g_layers = []
         for _ in range(num_layers):
-            g_layers.append(DynamicResGCBlock(adj, hid_channels, hid_channels, hid_channels))
+            g_layers.append(
+                DynamicResGCBlock(adj, hid_channels, hid_channels, hid_channels)
+            )
 
         self.g_layers = nn.Sequential(*g_layers)
         self.g_out = DynamicGConv(adj, hid_channels, out_channels)
@@ -102,9 +131,8 @@ class DynamicGCNet(nn.Module):
     def forward(self, x_in, x):
         adj = self.relation_learner(x_in)
         out = self.g_input(x, adj)
-        out = self.g_layers({'x': out, 'adj': adj})
-        out = out['x']
+        out = self.g_layers({"x": out, "adj": adj})
+        out = out["x"]
         out = self.g_out(out, adj)
 
         return out
-
