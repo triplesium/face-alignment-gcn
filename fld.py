@@ -5,6 +5,7 @@ import shutil
 import logging
 import numpy as np
 from easydict import EasyDict
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -24,7 +25,7 @@ from losses.wing_loss import (
     NMELoss,
     LaplacianLoss,
 )
-from utils.log_helper import init_log
+from utils.log_helper import cprint, init_log
 from utils.vis_utils import save_result_imgs, save_result_nmes, save_result_lmks
 from utils.vis_utils import add_scalar, get_model_graph, CsvHelper
 from utils.misc import save_checkpoint, print_speed, load_model, get_checkpoints
@@ -150,7 +151,7 @@ class FLD(object):
                         "optimizer": lr_scheduler.optimizer.state_dict(),
                         "state_dict": model.state_dict(),
                     },
-                    checkpoint=self.expname,
+                    checkpoint=str(self.expdir),
                     is_best=is_best,
                 )
             model.cuda()
@@ -248,6 +249,10 @@ class FLD(object):
     def _build_model(self):
         config = self.config
         self.model = FLD.build_model_helper(config=config)
+        model_params = sum(
+            p.numel() for p in self.model.parameters() if p.requires_grad
+        )
+        cprint.red("Model total parameters: {:.2f}M".format(model_params / 1e6))
 
     def _build_criterion(self):
         config = self.config.train_param.criterion
@@ -358,22 +363,21 @@ class FLD(object):
     def _dir_setting(self):
         config = self.config
         self.expname = config.expname
-        if not os.path.isdir(self.expname):
-            os.mkdir(self.expname)
+        self.expdir: Path = Path("experiments") / self.expname
+        self.expdir.mkdir(parents=True, exist_ok=True)
 
     def _vis_dir_setting(self):
         """Set up the directory for saving landmarked images"""
-        self.vis_dir = os.path.join(self.expname, "vis_result")
-        if not os.path.isdir(self.vis_dir):
-            os.mkdir(self.vis_dir)
+        self.vis_dir = self.expdir / "vis_result"
+        self.vis_dir.mkdir(parents=True, exist_ok=True)
 
     def _report_path_setting(self):
-        self.nme_path = os.path.join(self.expname, "nme.txt")
-        self.lmk_path = os.path.join(self.expname, "lmk.txt")
-        if os.path.exists(self.nme_path):
-            os.remove(self.nme_path)
-        if os.path.exists(self.lmk_path):
-            os.remove(self.lmk_path)
+        self.nme_path = self.expdir / "nme.txt"
+        self.lmk_path = self.expdir / "lmk.txt"
+        if self.nme_path.exists():
+            self.nme_path.unlink()
+        if self.lmk_path.exists():
+            self.lmk_path.unlink()
 
     def _build_tensorboard(self):
         pass

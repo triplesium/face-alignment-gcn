@@ -81,7 +81,7 @@ class DenseGCNPredictor(nn.Module):
         logger.debug("build DenseGCNPredictor ......")
         self.map_to_node = MapToNode2b(in_channels=in_channels, num_points=num_points)
         self.adjacency_learner = AdjacencyLearner(
-            in_channels=512, feat_size=8, num_points=num_points
+            in_channels=in_channels[-1], feat_size=8, num_points=num_points
         )
         hid_dim = kwargs["hid_dim"] if "hid_dim" in kwargs else 128
         num_layers = kwargs["num_layers"] if "num_layers" in kwargs else 4

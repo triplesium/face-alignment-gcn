@@ -1,3 +1,4 @@
 exp_*
 data/
 *.pyc
+experiments/

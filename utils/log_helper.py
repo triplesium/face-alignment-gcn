@@ -50,7 +50,7 @@ def init_log(name, level=logging.DEBUG):
         logger.addFilter(lambda record: rank == 0)
     else:
         rank = 0
-    FORMAT = f"[%(levelname)s]%(asctime)s-%(filename)s#%(lineno)d:%(message)s"
+    FORMAT = f"%(asctime)s[%(levelname)s] %(message)s"
     formatter = ColoredFormatter(FORMAT)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
