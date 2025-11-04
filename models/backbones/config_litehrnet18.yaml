@@ -1,0 +1,17 @@
+pretrained: utils/litehrnet_18_coco_256x192.pth
+extra:
+  num_points: 98
+  stem:
+    stem_channels: 32
+    out_channels: 32
+    expand_ratio: 1
+  num_stages: 3
+  stages_spec:
+    num_modules: [2, 4, 2]
+    num_branches: [2, 3, 4]
+    num_blocks: [2, 2, 2]
+    num_channels: [[40, 80], [40, 80, 160], [40, 80, 160, 320]]
+    reduce_ratios: [8, 8, 8]
+    with_fuse: [True, True, True]
+    module_type: [LITE, LITE, LITE]
+  with_head: false

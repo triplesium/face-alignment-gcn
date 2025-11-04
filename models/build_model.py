@@ -14,11 +14,13 @@ from models.gcn_model import sem_gcn
 from models.backbones import hrnet
 from models.backbones import efficient_net
 from models.backbones import vgg
+from models.backbones import litehrnet
 
 
 backbone_zoo = {
     "hrnetw32": hrnet.hrnetw32,
     "hrnet": hrnet.get_face_alignment_net,
+    "litehrnet": litehrnet.litehrnet,
     "efficientnet_b0": efficient_net.efficientnet_b0,
     "efficientnet_b1": efficient_net.efficientnet_b1,
     "efficientnet_b0_pretrained": efficient_net.efficientnet_b0_pretrained,
