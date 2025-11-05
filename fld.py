@@ -29,7 +29,7 @@ from utils.log_helper import cprint, init_log
 from utils.vis_utils import save_result_imgs, save_result_nmes, save_result_lmks
 from utils.vis_utils import add_scalar, get_model_graph, CsvHelper
 from utils.misc import save_checkpoint, print_speed, load_model, get_checkpoints
-from utils.metrics import MiscMeter, eval_NME
+from utils.metrics import MiscMeter, eval_NME, eval_NME_torch
 from utils.imutils import refine_300W_landmarks
 
 init_log("FLD")
@@ -67,18 +67,16 @@ class FLD(object):
                 # measure data loading time
                 data_time.update(time.time() - end)
                 # retrive data
-                image = samples["image"]
-                landmarks = samples["landmarks"]
+                image = samples["image"].cuda()
+                landmarks = samples["landmarks"].cuda()
                 # forward
-                landmarks_pred = model(image.cuda())
+                landmarks_pred = model(image)
                 # compute loss
                 task_loss = (
-                    self.task_loss(landmarks_pred, landmarks.cuda())
-                    * config.task_weight
+                    self.task_loss(landmarks_pred, landmarks) * config.task_weight
                 )
                 laplace_loss = (
-                    self.laplace_loss(landmarks_pred, landmarks.cuda())
-                    * config.laplace_weight
+                    self.laplace_loss(landmarks_pred, landmarks) * config.laplace_weight
                 )
 
                 loss = task_loss + laplace_loss
@@ -89,13 +87,9 @@ class FLD(object):
                 loss.backward()
                 lr_scheduler.optimizer.step()
                 # compute statistics
-                landmarks_pred = landmarks_pred.cpu().data
-                ion, _ = eval_NME(
-                    landmarks_pred.numpy(), landmarks.numpy(), num_kpts, mode="IO"
-                )
-                ipn, _ = eval_NME(
-                    landmarks_pred.numpy(), landmarks.numpy(), num_kpts, mode="IP"
-                )
+                landmarks_pred = landmarks_pred
+                ion, _ = eval_NME_torch(landmarks_pred, landmarks, num_kpts, mode="IO")
+                ipn, _ = eval_NME_torch(landmarks_pred, landmarks, num_kpts, mode="IP")
                 ION.update(ion)
                 IPN.update(ipn)
                 # measure elapsed time
@@ -320,7 +314,7 @@ class FLD(object):
             batch_size=config.batch_size,
             shuffle=True,
             num_workers=config.workers,
-            pin_memory=False,
+            pin_memory=True,
             drop_last=True,
         )
 
@@ -339,7 +333,7 @@ class FLD(object):
             batch_size=config.batch_size,
             shuffle=False,
             num_workers=config.workers,
-            pin_memory=False,
+            pin_memory=True,
         )
 
     def _build_dataloader(self):
