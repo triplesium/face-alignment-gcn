@@ -3,6 +3,7 @@ import argparse
 import yaml
 from pprint import pprint
 from fld import FLD
+import torchinfo
 
 
 def parse_args():
@@ -23,6 +24,7 @@ def parse_args():
     group.add_argument("--train", action="store_true")
     group.add_argument("--evaluate", action="store_true")
     group.add_argument("--eval_ckpts", action="store_true")
+    group.add_argument("--info", action="store_true")
 
     return new_parser.parse_args()
 
@@ -45,6 +47,16 @@ def main():
         agent.eval_ckpts()
     elif args.train:
         agent.train()
+    elif args.info:
+        torchinfo.summary(
+            agent.model,
+            input_size=(
+                1,
+                3,
+                config["common"]["crop_size"],
+                config["common"]["crop_size"],
+            ),
+        )
     else:
         raise Warning("Invalid Args")
 

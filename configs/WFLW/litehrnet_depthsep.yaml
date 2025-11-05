@@ -1,5 +1,3 @@
-#2025-11-05 08:38:49,522[INFO] ION: 0.0464 IPN: 0.0666 
-#2025-11-05 08:38:49,528[INFO] [TEST] ION min 0.0453 IPN min 0.0651
 common: &common
     num_kpts: 98
     is_color: true
@@ -7,7 +5,7 @@ common: &common
 structure:
     backbone_name: litehrnet
     receptive_keep: false
-    predictor_name: BaseGCNPredictor
+    predictor_name: DepthwiseSeparableGCNPredictor
     gcn_param:
         top_k: 3
     <<: *common

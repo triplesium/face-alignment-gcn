@@ -382,3 +382,63 @@ class MapToNode(nn.Module):
         out = out.view(out.size(0), self.num_points, -1)  # N x C x (WH)
 
         return out
+
+
+class _DepthwiseSeparableConv(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=True,
+        pw_act=True,
+    ):
+        super(_DepthwiseSeparableConv, self).__init__()
+        self.depthwise = nn.Sequential(
+            nn.Conv2d(
+                in_channels,
+                in_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                groups=in_channels,
+                bias=bias,
+            ),
+            nn.BatchNorm2d(in_channels),
+        )
+        self.pointwise = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0, bias=bias),
+            nn.BatchNorm2d(out_channels),
+        )
+        if pw_act:
+            self.pointwise.append(nn.ReLU(inplace=True))
+
+    def forward(self, x):
+        x = self.depthwise(x)
+        x = self.pointwise(x)
+        return x
+
+
+class DepthwiseSeparableMapToNode(nn.Module):
+    """MapToNode with Depthwise Separable Convolution"""
+
+    def __init__(self, in_channels, num_points):
+        super(DepthwiseSeparableMapToNode, self).__init__()
+        in_channel = in_channels[-1]
+        self.num_points = num_points
+
+        self.conv_out = _DepthwiseSeparableConv(
+            in_channel, 256, kernel_size=3, stride=1, padding=1, pw_act=True
+        )
+        self.conv_to_node = _DepthwiseSeparableConv(
+            256, num_points * 4, kernel_size=3, stride=1, padding=1, pw_act=True
+        )
+
+    def forward(self, x_dict):
+        x = x_dict["out4"]
+        x = self.conv_out(x)
+        x = self.conv_to_node(x)
+        x = x.view(x.size(0), self.num_points, -1)
+        return x

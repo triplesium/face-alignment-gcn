@@ -74,6 +74,7 @@ predictor_zoo = {
     "BinaryGCNetPredictor": predictor.BinaryGCNetPredictor,
     "BaseGCNPredictor": predictor.BaseGCNPredictor,
     "FCPredictor": predictor.FCPredictor,
+    "DepthwiseSeparableGCNPredictor": predictor.DepthwiseSeparableGCNPredictor,
 }
 
 

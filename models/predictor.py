@@ -14,6 +14,7 @@ from models.gcn_model.map_to_node import (
     MapToNodeAttention,
     MapToNodeAttentionV2,
     BaseMapToNode,
+    DepthwiseSeparableMapToNode,
 )
 from models.gcn_model.sem_gcn import SemGCN
 from models.gcn_model.sem_ch_gcn import SemChGCN
@@ -678,6 +679,36 @@ class SemGraphPredictor(nn.Module):
             hid_dim=hid_dim,
             num_layers=num_layers,
             coords_dim=(feat_size**2, 2),
+            p_dropout=p_dropout,
+        )
+
+    def forward(self, x_dict):
+        out = self.map_to_node(x_dict)
+        out = self.sem_gcn(out)
+        out = out.view(out.size(0), -1)
+        return out
+
+
+class DepthwiseSeparableGCNPredictor(nn.Module):
+    def __init__(self, in_channels, num_points, feat_size, **kwargs):
+        super(DepthwiseSeparableGCNPredictor, self).__init__()
+        cprint.green("Creating DepthwiseSeparableGCNPredictor ......")
+        _, _, num_out_feat3, num_out_feat4 = in_channels
+        self.map_to_node = DepthwiseSeparableMapToNode(
+            in_channels=in_channels, num_points=num_points
+        )
+        top_k = kwargs["top_k"] if "top_k" in kwargs else False
+        adj_matrix = adj_matrix_from_num_points(
+            num_points=num_points, is_weight=False, top_k=top_k
+        )
+        hid_dim = kwargs["hid_dim"] if "hid_dim" in kwargs else 128
+        num_layers = kwargs["num_layers"] if "num_layers" in kwargs else 4
+        p_dropout = kwargs["p_dropout"] if "p_dropout" in kwargs else None
+        self.sem_gcn = SemGCN(
+            adj_matrix,
+            hid_dim=hid_dim,
+            num_layers=num_layers,
+            coords_dim=(feat_size * feat_size * 4, 2),
             p_dropout=p_dropout,
         )
 
