@@ -75,6 +75,7 @@ predictor_zoo = {
     "BaseGCNPredictor": predictor.BaseGCNPredictor,
     "FCPredictor": predictor.FCPredictor,
     "DepthwiseSeparableGCNPredictor": predictor.DepthwiseSeparableGCNPredictor,
+    "DepthwiseSeparableGATPredictor": predictor.DepthwiseSeparableGATPredictor,
 }
 
 
