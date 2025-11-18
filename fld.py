@@ -6,6 +6,7 @@ import logging
 import numpy as np
 from easydict import EasyDict
 from pathlib import Path
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -63,7 +64,7 @@ class FLD(object):
             ION = MiscMeter()
             IPN = MiscMeter()
             end = time.time()
-            for i, samples in enumerate(train_loader):
+            for i, samples in tqdm(enumerate(train_loader), total=len(train_loader)):
                 # measure data loading time
                 data_time.update(time.time() - end)
                 # retrive data
@@ -98,30 +99,20 @@ class FLD(object):
                 data_time_ratio = data_time.avg / batch_time.avg
                 # print info
                 if i % config.print_freq == 0:
-                    logger.info(
-                        "Epoch: [{0}][{1}/{2}] "
-                        "Data Time Ratio: {data_time_ratio:.3f} "
-                        "ION {ION.avg:.4f} "
-                        "IPN {IPN.avg:.4f} "
-                        "LR {lr:.7f} "
-                        "Task Loss {task_loss.avg:.4f} "
-                        "Laplace Loss {laplace_loss.avg: 4f}".format(
-                            epoch,
-                            i,
-                            len(train_loader),
-                            data_time_ratio=data_time_ratio,
-                            ION=ION,
-                            IPN=IPN,
-                            task_loss=task_losses,
-                            laplace_loss=laplace_losses,
-                            lr=lr,
-                        )
+                    tqdm.write(
+                        f"Epoch: [{epoch}][{i}/{len(train_loader)}] "
+                        f"Data Time Ratio: {data_time_ratio:.3f} "
+                        f"ION {ION.avg:.4f} "
+                        f"IPN {IPN.avg:.4f} "
+                        f"LR {lr:.4f} "
+                        f"Task Loss {task_losses.avg:.4f} "
+                        f"Laplace Loss {laplace_losses.avg:.4f}"
                     )
-                    print_speed(
-                        epoch * len(train_loader) + i + 1,
-                        batch_time.val,
-                        config.scheduler.epochs * len(train_loader),
-                    )
+                    # print_speed(
+                    #     epoch * len(train_loader) + i + 1,
+                    #     batch_time.val,
+                    #     config.scheduler.epochs * len(train_loader),
+                    # )
 
             if (epoch + 1) % config.snapshot_freq == 0:
                 # deallocate memory
@@ -132,7 +123,7 @@ class FLD(object):
                 # save current checkpoint and best checkpoint
                 ION_MIN.update(ion)
                 IPN_MIN.update(ipn)
-                logger.info(
+                tqdm.write(
                     "[TEST] ION min {:.4f} IPN min {:.4f}".format(
                         ION_MIN.min, IPN_MIN.min
                     )
