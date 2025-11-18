@@ -1,9 +1,11 @@
 import os
 import argparse
+from pathlib import Path
 import yaml
 from pprint import pprint
 from fld import FLD
 import torchinfo
+from calflops import calculate_flops
 
 
 def parse_args():
@@ -35,6 +37,9 @@ def main():
     with open(args.config) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
+    if args.expname is None:
+        args.expname = Path(args.config).stem
+
     for k, v in vars(args).items():
         config[k] = v
     pprint(config)
@@ -57,6 +62,17 @@ def main():
                 config["common"]["crop_size"],
             ),
         )
+        flops, macs, params = calculate_flops(
+            agent.model,
+            input_shape=(
+                1,
+                3,
+                config["common"]["crop_size"],
+                config["common"]["crop_size"],
+            ),
+            print_results=False,
+        )
+        print(f"Flops: {flops}, Macs: {macs}, Params: {params}")
     else:
         raise Warning("Invalid Args")
 
