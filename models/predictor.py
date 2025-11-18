@@ -746,3 +746,35 @@ class DepthwiseSeparableGATPredictor(nn.Module):
         out = self.gat_net(out)
         out = out.view(out.size(0), -1)
         return out
+
+
+class DepthwiseSeparableDynamicGCNetPredictor(nn.Module):
+    def __init__(self, in_channels, num_points, feat_size, **kwargs):
+        super(DepthwiseSeparableDynamicGCNetPredictor, self).__init__()
+        logger.debug("build DepthwiseSeparableDynamicGCNetPredictor ......")
+        self.map_to_node = DepthwiseSeparableMapToNode(
+            in_channels=in_channels, num_points=num_points
+        )
+        top_k = kwargs["top_k"] if "top_k" in kwargs else False
+        is_weight = kwargs["is_weight"] if "is_weight" in kwargs else False
+        adj_matrix = adj_matrix_from_num_points(
+            num_points=num_points, is_weight=is_weight, top_k=top_k
+        )
+        hid_dim = kwargs["hid_dim"] if "hid_dim" in kwargs else 128
+        num_layers = kwargs["num_layers"] if "num_layers" in kwargs else 4
+        self.g_net = DynamicGCNet(
+            adj_matrix,
+            in_channels=feat_size**2 * 4,
+            out_channels=2,
+            num_points=num_points,
+            hid_channels=hid_dim,
+            top_k=top_k,
+            num_layers=num_layers,
+        )
+
+    def forward(self, x_dict):
+        out4 = x_dict["out4"]
+        out = self.map_to_node(x_dict)
+        out = self.g_net(out4, out)
+        out = out.view(out.size(0), -1)
+        return out

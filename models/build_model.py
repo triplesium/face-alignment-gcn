@@ -105,7 +105,9 @@ class ModelBuilder(nn.Module):
         # feat_size = int(math.ceil(config.crop_size/self.backbone.downsample_ratio))
         feat_size = config.crop_size // self.backbone.downsample_ratio
         gcn_param = config.gcn_param if hasattr(config, "gcn_param") else {}
-        self.predictor = predictor_zoo[config.predictor_name](
+        self.predictor = predictor_zoo.get(
+            config.predictor_name, getattr(predictor, config.predictor_name)
+        )(
             in_channels=self.backbone.num_out_feats,
             feat_size=feat_size,
             num_points=config.num_kpts,

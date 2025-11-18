@@ -115,7 +115,7 @@ class DynamicGCNet(nn.Module):
         super(DynamicGCNet, self).__init__()
 
         self.relation_learner = RelationLearner(
-            512, num_points, top_k=top_k
+            600, num_points, top_k=top_k
         )  # TODO hard code here
         self.g_input = DynamicGCBlock(adj, in_channels, hid_channels)
 
